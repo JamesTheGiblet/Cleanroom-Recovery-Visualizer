@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LWS - Cleanroom Recovery Visualizer</title>
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: rgba(0,0,0,0.1);
+        }
+        
+        :root {
+            /* LWS Branding Colors: Scientific Blue & Clean White */
+            --primary: #0056b3;
+            --primary-light: #4dabf7;
+            --primary-dark: #003d80;
+            --secondary: #20c997; /* Teal for "Clean" */
+            --warning: #ffc107;
+            --danger: #dc3545;
+            --info: #17a2b8;
+            --success: #28a745;
+            --light-bg: #f1f3f5;
+            --dark-text: #343a40;
+            --card-bg: #ffffff;
+            --shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.12);
+            --radius: 8px; /* Sharper corners for "Technical" look */
+            --radius-sm: 4px;
+            --transition: all 0.3s ease;
+        }
+        
+        body {
+            font-family: 'Roboto', 'Segoe UI', -apple-system, sans-serif;
+            background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+            color: var(--dark-text);
+            line-height: 1.6;
+            padding-bottom: 80px;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 12px;
+        }
+        
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
+            color: white;
+            padding: 16px 12px;
+            text-align: center;
+            box-shadow: var(--shadow-lg);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+        
+        .header h1 {
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            letter-spacing: 0.5px;
+        }
+        
+        .header .subtitle {
+            font-size: 0.8rem;
+            opacity: 0.9;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        /* Tab Navigation */
+        .tab-nav {
+            background: white;
+            box-shadow: var(--shadow);
+            position: sticky;
+            top: 76px;
+            z-index: 999;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+        
+        .tab-buttons {
+            display: flex;
+            padding: 0;
+            min-width: min-content;
+        }
+        
+        .tab-btn {
+            flex: 1;
+            min-width: 100px;
+            padding: 14px 12px;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            color: var(--dark-text);
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .tab-btn i { font-size: 1.2rem; }
+        
+        .tab-btn.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+            background: rgba(0, 86, 179, 0.05);
+        }
+        
+        .tab-content {
+            display: none;
+            padding: 16px 0;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .tab-content.active { display: block; }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Cards */
+        .card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 16px;
+            margin-bottom: 16px;
+            border-top: 3px solid var(--primary); /* Technical Accent */
+        }
+        
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            cursor: pointer;
+        }
+        
+        .card-header h3 {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.1rem;
+            color: var(--primary-dark);
+            font-weight: 700;
+        }
+        
+        /* Chart Container */
+        .chart-wrapper {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 16px;
+            margin-bottom: 16px;
+            overflow: hidden;
+            border-top: 3px solid var(--primary);
+        }
+        
+        #chart { width: 100%; height: 350px; }
+        
+        /* Metrics Grid */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+        
+        .metric-card {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: var(--radius-sm);
+            padding: 14px;
+            text-align: center;
+        }
+        
+        .metric-value {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 4px;
+        }
+        
+        .metric-label {
+            font-size: 0.75rem;
+            color: #666;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        /* Sliders */
+        .slider-container { margin-bottom: 20px; }
+        
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+        
+        .slider-value {
+            background: var(--primary);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            min-width: 60px;
+            text-align: center;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            -webkit-appearance: none;
+            background: #dee2e6;
+            border-radius: 3px;
+            outline: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 24px;
+            height: 24px;
+            background: var(--primary);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        
+        /* Radio Group - ACH Settings */
+        .radio-group {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+        
+        @media (min-width: 480px) {
+            .radio-group { grid-template-columns: repeat(2, 1fr); }
+        }
+        
+        .radio-container {
+            padding: 14px;
+            background: var(--light-bg);
+            border: 2px solid transparent;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            text-align: center;
+            transition: var(--transition);
+        }
+        
+        .radio-container.selected {
+            background: rgba(0, 86, 179, 0.1);
+            border-color: var(--primary);
+        }
+        
+        .radio-label { font-weight: 700; font-size: 0.95rem; color: var(--primary-dark); }
+        .radio-sublabel { font-size: 0.8rem; color: #666; margin-top: 4px; }
+        
+        /* Contamination Presets */
+        .drink-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        
+        .drink-card {
+            background: var(--light-bg);
+            border: 1px solid #dee2e6;
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        
+        .drink-card:active { transform: scale(0.98); background: #e2e6ea; }
+        
+        .drink-icon { font-size: 1.8rem; margin-bottom: 8px; color: var(--primary); }
+        .drink-name { font-weight: 600; font-size: 0.85rem; margin-bottom: 2px; }
+        .drink-caffeine { font-size: 0.75rem; color: #666; }
+        
+        /* Buttons */
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            width: 100%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: var(--transition);
+        }
+        
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .btn-outline {
+            background: white;
+            color: var(--danger);
+            border: 1px solid var(--danger);
+        }
+        
+        /* Timeline */
+        .timeline { position: relative; padding-left: 24px; margin-top: 10px; }
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 8px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #dee2e6;
+        }
+        
+        .timeline-item { position: relative; margin-bottom: 20px; }
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -20px;
+            top: 4px;
+            width: 10px;
+            height: 10px;
+            background: var(--primary);
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 0 0 1px var(--primary);
+        }
+        
+        .timeline-time { font-weight: 700; color: var(--primary-dark); font-size: 0.85rem; }
+        .timeline-content { font-size: 0.8rem; color: #555; }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--dark-text);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 50px;
+            box-shadow: var(--shadow-lg);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 2000;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+            min-width: 300px;
+        }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>
+            <i class="fas fa-shield-virus"></i>
+            LWS Recovery
+        </h1>
+        <div class="subtitle">Cleanroom Contamination Visualizer</div>
+    </div>
+    
+    <div class="tab-nav">
+        <div class="tab-buttons">
+            <button class="tab-btn active" data-tab="dashboard">
+                <i class="fas fa-chart-area"></i>
+                <span>Monitor</span>
+            </button>
+            <button class="tab-btn" data-tab="inputs">
+                <i class="fas fa-plus-circle"></i>
+                <span>Events</span>
+            </button>
+            <button class="tab-btn" data-tab="config">
+                <i class="fas fa-sliders-h"></i>
+                <span>Config</span>
+            </button>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="tab-content active" id="dashboard">
+            <div class="chart-wrapper">
+                <div id="chart"></div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-tachometer-alt"></i> Room Status (ISO 7)</h3>
+                </div>
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-value" id="current-load">12,500</div>
+                        <div class="metric-label">Particles (0.5µm)</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value" id="time-to-clean">14m</div>
+                        <div class="metric-label">Recovery Time</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value" id="ach-display">20</div>
+                        <div class="metric-label">Current ACH</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value" id="status-text" style="color:var(--success)">SAFE</div>
+                        <div class="metric-label">Compliance</div>
+                    </div>
+                </div>
+            </div>
+            
+             <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-history"></i> Event Log</h3>
+                </div>
+                <div class="timeline" id="event-timeline">
+                    <div class="timeline-item">
+                        <div class="timeline-time">System Ready</div>
+                        <div class="timeline-content">No contamination events recorded.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="inputs">
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-exclamation-triangle"></i> Simulate Contamination</h3>
+                </div>
+                <p style="margin-bottom:12px; font-size:0.9rem; color:#666;">Tap to simulate particle generation events:</p>
+                <div class="drink-grid" id="contamination-presets">
+                    </div>
+            </div>
+            <div class="card">
+                 <button class="btn btn-outline" onclick="clearEvents()">
+                    <i class="fas fa-trash"></i> Reset Simulation
+                </button>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="config">
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-fan"></i> HVAC Settings</h3>
+                </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <div class="slider-label">
+                        <span>Air Changes per Hour (ACH)</span>
+                        <span class="slider-value" id="display-ach">20</span>
+                    </div>
+                    <div class="radio-group">
+                        <label class="radio-container" onclick="setACH(10)">
+                            <div class="radio-label">Eco Mode</div>
+                            <div class="radio-sublabel">10 ACH (Slow Recovery)</div>
+                        </label>
+                        <label class="radio-container selected" onclick="setACH(20)">
+                            <div class="radio-label">Standard</div>
+                            <div class="radio-sublabel">20 ACH (ISO 7/8)</div>
+                        </label>
+                        <label class="radio-container" onclick="setACH(40)">
+                            <div class="radio-label">High Velocity</div>
+                            <div class="radio-sublabel">40 ACH (Rapid Clean)</div>
+                        </label>
+                        <label class="radio-container" onclick="setACH(60)">
+                            <div class="radio-label">Emergency</div>
+                            <div class="radio-sublabel">60 ACH (Flush)</div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Room Volume (m³)</span>
+                        <span class="slider-value" id="display-volume">100</span>
+                    </div>
+                    <input type="range" id="volume" min="50" max="500" value="100" step="10">
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-ruler-combined"></i> ISO Standards</h3>
+                </div>
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>ISO Limit (Particles/m³)</span>
+                        <span class="slider-value" id="display-iso">352,000</span>
+                    </div>
+                    <input type="range" id="iso-limit" min="3500" max="1000000" value="352000" step="1000">
+                    <p style="font-size:0.8rem; color:#666; margin-top:8px;">
+                        Default is ISO Class 7 (352,000 particles ≥ 0.5µm).
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="toast" id="toast">
+        <i class="fas fa-info-circle"></i>
+        <span id="toast-message">Notification</span>
+    </div>
+
+    <script>
+        // ==========================================
+        // CONFIGURATION & STATE
+        // ==========================================
+        
+        const events = [
+            { name: 'Door Opened', icon: 'fa-door-open', particles: 50000, desc: '1 min duration' },
+            { name: 'Person Entering', icon: 'fa-user', particles: 150000, desc: 'Gowning protocol' },
+            { name: 'Equipment Move', icon: 'fa-box', particles: 300000, desc: 'Cart rolling' },
+            { name: 'Spill / Cleaning', icon: 'fa-broom', particles: 500000, desc: 'Aerosol generation' },
+            { name: 'Process Failure', icon: 'fa-exclamation-circle', particles: 1000000, desc: 'Major release' },
+            { name: 'Shift Change', icon: 'fa-users', particles: 250000, desc: 'Multiple entries' }
+        ];
+
+        let state = {
+            events: [],
+            ach: 20,
+            volume: 100,
+            isoLimit: 352000, // ISO Class 7
+            baseline: 1000 // Background particles
+        };
+
+        // ==========================================
+        // INITIALIZATION
+        // ==========================================
+        document.addEventListener('DOMContentLoaded', () => {
+            initTabs();
+            initPresets();
+            initControls();
+            updateVis();
+        });
+
+        function initTabs() {
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    btn.classList.add('active');
+                    document.getElementById(btn.dataset.tab).classList.add('active');
+                    if(btn.dataset.tab === 'dashboard') updateVis(); // Redraw chart
+                });
+            });
+        }
+
+        function initPresets() {
+            const grid = document.getElementById('contamination-presets');
+            events.forEach(ev => {
+                const card = document.createElement('div');
+                card.className = 'drink-card';
+                card.innerHTML = `
+                    <div class="drink-icon"><i class="fas ${ev.icon}"></i></div>
+                    <div class="drink-name">${ev.name}</div>
+                    <div class="drink-caffeine">+${(ev.particles/1000).toFixed(0)}k particles</div>
+                `;
+                card.onclick = () => addEvent(ev);
+                grid.appendChild(card);
+            });
+        }
+
+        function initControls() {
+            // Volume Slider
+            const volSlider = document.getElementById('volume');
+            volSlider.addEventListener('input', (e) => {
+                state.volume = parseInt(e.target.value);
+                document.getElementById('display-volume').textContent = state.volume;
+                updateVis();
+            });
+
+            // ISO Slider
+            const isoSlider = document.getElementById('iso-limit');
+            isoSlider.addEventListener('input', (e) => {
+                state.isoLimit = parseInt(e.target.value);
+                document.getElementById('display-iso').textContent = state.isoLimit.toLocaleString();
+                updateVis();
+            });
+        }
+
+        function setACH(val) {
+            state.ach = val;
+            document.getElementById('display-ach').textContent = val;
+            
+            // Visual toggle update
+            document.querySelectorAll('.radio-container').forEach(el => el.classList.remove('selected'));
+            event.currentTarget.classList.add('selected');
+            
+            showToast(`HVAC set to ${val} Air Changes/Hour`);
+            updateVis();
+        }
+
+        // ==========================================
+        // LOGIC ENGINE (The "Decay" Math)
+        // ==========================================
+        function addEvent(preset) {
+            state.events.push({
+                ...preset,
+                time: new Date(),
+                id: Date.now()
+            });
+            showToast(`Event: ${preset.name} recorded`, 'warning');
+            updateVis();
+            updateTimeline();
+        }
+
+        function clearEvents() {
+            state.events = [];
+            showToast('All contamination events cleared');
+            updateVis();
+            updateTimeline();
+        }
+
+        function calculateCurve() {
+            // Simulation parameters
+            const duration = 60; // Minutes to project
+            const timeStep = 1; // Minute intervals
+            const now = new Date();
+            
+            let x = []; // Time (min)
+            let y = []; // Particle Count
+            
+            // 1. Calculate Recovery Rate (Decay Constant)
+            // Formula: C = C0 * e^(-Qt/V)  -> Decay constant k = ACH / 60
+            const decayConstant = state.ach / 60; 
+
+            for (let t = 0; t <= duration; t++) {
+                // Calculate current simulation time
+                const simTime = new Date(now.getTime() + t * 60000);
+                let currentParticles = state.baseline;
+
+                // Sum up residual particles from all past events
+                state.events.forEach(ev => {
+                    const minutesSinceEvent = (simTime - ev.time) / 60000;
+                    
+                    if (minutesSinceEvent >= 0) {
+                        // Standard exponential decay: N(t) = N0 * e^(-kt)
+                        const remaining = ev.particles * Math.exp(-decayConstant * minutesSinceEvent);
+                        currentParticles += remaining;
+                    }
+                });
+
+                x.push(t);
+                y.push(Math.round(currentParticles));
+            }
+
+            return { x, y, currentVal: y[0] };
+        }
+
+        // ==========================================
+        // VISUALIZATION
+        // ==========================================
+        function updateVis() {
+            const data = calculateCurve();
+            
+            // Update Metrics
+            document.getElementById('current-load').textContent = data.currentVal.toLocaleString();
+            document.getElementById('ach-display').textContent = state.ach;
+            
+            // Calculate Recovery Time (Time to return to ISO limit)
+            let recoveryTime = 0;
+            if (data.currentVal > state.isoLimit) {
+                // Find first point where y < limit
+                const index = data.y.findIndex(val => val < state.isoLimit);
+                recoveryTime = index === -1 ? '>60' : index;
+            }
+            document.getElementById('time-to-clean').textContent = recoveryTime + "m";
+            
+            // Status Text
+            const statusEl = document.getElementById('status-text');
+            if (data.currentVal > state.isoLimit) {
+                statusEl.textContent = "CONTAMINATED";
+                statusEl.style.color = "var(--danger)";
+            } else {
+                statusEl.textContent = "COMPLIANT";
+                statusEl.style.color = "var(--success)";
+            }
+
+            // Draw Chart
+            const trace1 = {
+                x: data.x,
+                y: data.y,
+                type: 'scatter',
+                mode: 'lines',
+                name: 'Particles',
+                line: { color: '#0056b3', width: 3 },
+                fill: 'tozeroy',
+                fillcolor: 'rgba(0, 86, 179, 0.1)'
+            };
+
+            const trace2 = {
+                x: [0, 60],
+                y: [state.isoLimit, state.isoLimit],
+                mode: 'lines',
+                name: 'ISO Limit',
+                line: { color: '#dc3545', width: 2, dash: 'dash' }
+            };
+
+            const layout = {
+                title: false,
+                xaxis: { title: 'Minutes from Now', gridcolor: '#e9ecef' },
+                yaxis: { title: 'Particle Count', gridcolor: '#e9ecef' },
+                margin: { l: 50, r: 20, t: 20, b: 40 },
+                showlegend: true,
+                legend: { orientation: 'h', y: 1.1 },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)'
+            };
+
+            Plotly.newPlot('chart', [trace1, trace2], layout, {responsive: true, displayModeBar: false});
+        }
+
+        function updateTimeline() {
+            const container = document.getElementById('event-timeline');
+            if (state.events.length === 0) {
+                container.innerHTML = `<div class="timeline-item"><div class="timeline-time">System Ready</div><div class="timeline-content">No events.</div></div>`;
+                return;
+            }
+            
+            container.innerHTML = state.events.slice().reverse().map(ev => `
+                <div class="timeline-item">
+                    <div class="timeline-time">${ev.time.toLocaleTimeString()}</div>
+                    <div class="timeline-content">
+                        <strong>${ev.name}</strong><br>
+                        +${(ev.particles/1000).toFixed(0)}k particles
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function showToast(msg, type='info') {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-message').textContent = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+    </script>
+</body>
+</html>
