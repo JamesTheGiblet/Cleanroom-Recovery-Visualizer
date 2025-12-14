@@ -536,6 +536,101 @@
             .tab-btn:hover { background: rgba(0, 86, 179, 0.05); }
         }
         
+        /* Tutorial Styles */
+        .tutorial-highlight {
+            position: absolute;
+            z-index: 4000;
+            border: 2px solid var(--warning);
+            border-radius: 4px;
+            box-shadow: 0 0 0 9999px rgba(0,0,0,0.7);
+            pointer-events: none;
+            transition: all 0.3s ease;
+            display: none;
+        }
+        .tutorial-tooltip {
+            position: absolute;
+            z-index: 4001;
+            background: white;
+            padding: 20px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            width: 280px;
+            display: none;
+            transition: all 0.3s ease;
+        }
+        .tutorial-tooltip h3 { margin-top: 0; color: var(--primary); font-size: 1.1rem; margin-bottom: 8px; }
+        .tutorial-tooltip p { font-size: 0.9rem; color: #555; margin-bottom: 15px; line-height: 1.5; }
+        .tutorial-footer { display: flex; justify-content: space-between; align-items: center; }
+        .tutorial-dots { display: flex; gap: 4px; }
+        .tutorial-dot { width: 8px; height: 8px; background: #eee; border-radius: 50%; }
+        .tutorial-dot.active { background: var(--primary); }
+
+        /* Info Modal Styles */
+        .header .info-btn {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition);
+            font-size: 1.1rem;
+        }
+        .header .info-btn:hover { background: rgba(255,255,255,0.3); }
+
+        .modal {
+            display: none; 
+            position: fixed; 
+            z-index: 3000; 
+            left: 0;
+            top: 0;
+            width: 100%; 
+            height: 100%; 
+            overflow: auto; 
+            background-color: rgba(0,0,0,0.5);
+            -webkit-backdrop-filter: blur(4px);
+            backdrop-filter: blur(4px);
+            animation: fadeIn 0.3s;
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto; 
+            padding: 24px;
+            border: 1px solid #888;
+            width: 90%;
+            max-width: 800px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            position: relative;
+        }
+
+        .close-modal {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close-modal:hover { color: var(--dark-text); }
+
+        .markdown-body { line-height: 1.6; color: var(--dark-text); }
+        .markdown-body h2 { margin-top: 1.5em; margin-bottom: 0.5em; color: var(--primary-dark); border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+        .markdown-body h3 { margin-top: 1.2em; margin-bottom: 0.5em; color: var(--primary); }
+        .markdown-body ul, .markdown-body ol { margin-left: 20px; margin-bottom: 1em; }
+        .markdown-body p { margin-bottom: 1em; }
+        .markdown-body blockquote { border-left: 4px solid var(--warning); padding-left: 12px; color: #555; background: #fff3cd30; margin: 1em 0; }
+        .markdown-body code { background: #f8f9fa; padding: 2px 4px; border-radius: 4px; font-family: monospace; color: var(--danger); }
+        .markdown-body img { max-width: 100%; height: auto; }
+
         /* Accessibility: Keyboard Navigation */
         body.keyboard-nav :focus {
             outline: 3px solid var(--warning);
@@ -559,6 +654,9 @@
             LWS Recovery
         </h1>
         <div class="subtitle">Cleanroom Contamination Visualizer <span class="pro-badge">DEMO</span></div>
+        <button class="info-btn" onclick="toggleModal(true)" aria-label="About this tool">
+            <i class="fas fa-info"></i>
+        </button>
     </div>
     
     <div class="tab-nav">
@@ -720,6 +818,91 @@
         <span id="toast-message">Notification</span>
     </div>
 
+    <!-- Tutorial Elements -->
+    <div id="tutorial-highlight" class="tutorial-highlight"></div>
+    <div id="tutorial-tooltip" class="tutorial-tooltip">
+        <h3 id="tutorial-title"></h3>
+        <p id="tutorial-text"></p>
+        <div class="tutorial-footer">
+            <button id="tutorial-skip" style="background:none; border:none; color:#999; font-size:0.8rem; cursor:pointer; padding:4px;">Skip</button>
+            <div class="tutorial-dots" id="tutorial-dots"></div>
+            <button class="btn btn-primary" id="tutorial-next" style="width:auto; padding: 6px 12px; font-size: 0.8rem;">Next</button>
+        </div>
+    </div>
+
+    <!-- Readme Modal -->
+    <div id="readme-modal" class="modal" onclick="if(event.target === this) toggleModal(false)">
+        <div class="modal-content">
+            <span class="close-modal" onclick="toggleModal(false)">&times;</span>
+            <div class="markdown-body">
+                <h1 style="margin-bottom:0.5em; color:var(--primary-dark);">LWS Cleanroom Recovery Visualizer</h1>
+                <p>
+                    <img src="https://img.shields.io/badge/version-1.1.0-blue.svg" alt="Version">
+                    <img src="https://img.shields.io/badge/status-demo-orange.svg" alt="Status">
+                    <img src="https://img.shields.io/badge/ISO-14644--3-compliant-green.svg" alt="Compliance">
+                </p>
+                <p><strong>A real-time contamination decay simulation tool designed for Lighthouse Worldwide Solutions.</strong></p>
+                <p>This Progressive Web Application (PWA) models cleanroom recovery performance based on Air Changes per Hour (ACH) and specific contamination events. It visualizes the exponential decay of airborne particulates to predict exactly when a facility returns to <strong>ISO Class 7</strong> compliance.</p>
+                <blockquote>
+                    <p><strong>Note:</strong> This deployment is configured in <strong>DEMO MODE</strong>. Enterprise features (PDF Reporting, CSV Export, Cost Analysis) are visible but locked to demonstrate the upgrade path.</p>
+                </blockquote>
+                
+                <h2>🎯 The Problem</h2>
+                <p>Facility managers often rely on static calculations to estimate room recovery times. When a contamination event occurs (e.g., a spill or gowning breach), they need to know:</p>
+                <ol>
+                    <li><strong>How bad is the spike?</strong></li>
+                    <li><strong>Given our current HVAC settings (ACH), how long until we are safe?</strong></li>
+                </ol>
+
+                <h2>⚡ The Solution</h2>
+                <p>This tool uses <strong>First-Order Decay Kinetics</strong> (identical to pharmacokinetic clearance models) to visualize air scrubbing in real-time.</p>
+                <h3>Key Features</h3>
+                <ul>
+                    <li><strong>Dynamic Simulation:</strong> Model complex scenarios (e.g., "Door Open" followed by "Spill").</li>
+                    <li><strong>HVAC Tuning:</strong> Adjust Air Changes per Hour (10-60 ACH) to see the impact on recovery time.</li>
+                    <li><strong>ISO Compliance:</strong> Visual thresholds for ISO Class 7/8 limits.</li>
+                    <li><strong>Zero-Latency Graphing:</strong> Powered by Plotly.js for millisecond-level rendering updates.</li>
+                    <li><strong>Mobile-First Architecture:</strong> Touch-optimized for tablets and mobile devices (iOS/Android).</li>
+                    <li><strong>State Persistence:</strong> Automatically saves configuration and event history to local storage.</li>
+                </ul>
+
+                <h2>📐 The Math (Scientific Basis)</h2>
+                <p>The logic engine calculates particulate reduction using the standard Cleanroom Recovery Formula:</p>
+                <div style="background:#f8f9fa; padding:12px; border-radius:4px; text-align:center; margin:10px 0; font-family:serif; font-style:italic; font-size:1.1rem; border:1px solid #dee2e6;">
+                    C<sub>t</sub> = C<sub>initial</sub> × e<sup>-(Q/V)t</sup>
+                </div>
+                <p>Where:</p>
+                <ul>
+                    <li><strong>C<sub>t</sub></strong>: Concentration at time <em>t</em></li>
+                    <li><strong>Q</strong>: Airflow rate (m³/h)</li>
+                    <li><strong>V</strong>: Room Volume (m³)</li>
+                    <li><strong>t</strong>: Time elapsed</li>
+                </ul>
+
+                <h2>🚀 Quick Start</h2>
+                <p>This prototype is built as a <strong>Zero-Dependency Single Page Application (SPA)</strong>. It requires no build step, no backend, and no installation.</p>
+                
+                <h3>Deployment</h3>
+                <p>Because the architecture is static HTML/JS, it can be deployed instantly to:</p>
+                <ul>
+                    <li>GitHub Pages</li>
+                    <li>Netlify / Vercel</li>
+                    <li>Internal LWS Intranet (SharePoint/Confluence)</li>
+                </ul>
+
+                <h2>🛠 Tech Stack</h2>
+                <ul>
+                    <li><strong>Core:</strong> Vanilla JavaScript (ES6+) for maximum performance and compatibility.</li>
+                    <li><strong>Visualization:</strong> Plotly.js (via CDN) for scientific-grade charting.</li>
+                </ul>
+                
+                <button class="btn btn-outline" onclick="startTutorial(); toggleModal(false)" style="margin-top:20px;">
+                    <i class="fas fa-play-circle"></i> Replay Tutorial
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // ==========================================
         // CONFIGURATION & STATE
@@ -753,6 +936,7 @@
             initTouch();
             initKeyboard();
             updateVis();
+            checkTutorial();
         });
 
         function initData() {
@@ -1057,6 +1241,117 @@
             toast.classList.add('show');
             setTimeout(() => toast.classList.remove('show'), 3000);
         }
+
+        function toggleModal(show) {
+            const modal = document.getElementById('readme-modal');
+            modal.style.display = show ? 'block' : 'none';
+        }
+
+        // ==========================================
+        // TUTORIAL MODE
+        // ==========================================
+        let currentStep = 0;
+        const tutorialSteps = [
+            {
+                target: null,
+                title: "Welcome to LWS Recovery",
+                text: "This tool simulates cleanroom contamination recovery. Let's take a quick tour of the features."
+            },
+            {
+                target: '[data-tab="dashboard"]',
+                title: "Real-time Monitor",
+                text: "View live particle counts, recovery time, and ISO compliance status in real-time.",
+                action: () => document.querySelector('[data-tab="dashboard"]').click()
+            },
+            {
+                target: '[data-tab="inputs"]',
+                title: "Simulate Events",
+                text: "Trigger contamination events like 'Door Open' or 'Spills' to see how the room reacts.",
+                action: () => document.querySelector('[data-tab="inputs"]').click()
+            },
+            {
+                target: '[data-tab="config"]',
+                title: "HVAC Controls",
+                text: "Adjust Air Changes per Hour (ACH) and Room Volume to optimize recovery time.",
+                action: () => document.querySelector('[data-tab="config"]').click()
+            }
+        ];
+
+        function checkTutorial() {
+            if (!localStorage.getItem('tutorial_shown')) {
+                setTimeout(startTutorial, 1000); // Delay slightly for load
+            }
+        }
+
+        function startTutorial() {
+            currentStep = 0;
+            showStep(0);
+            localStorage.setItem('tutorial_shown', 'true');
+        }
+
+        function showStep(index) {
+            const step = tutorialSteps[index];
+            const highlight = document.getElementById('tutorial-highlight');
+            const tooltip = document.getElementById('tutorial-tooltip');
+            
+            if (step.action) step.action();
+
+            // Update Text
+            document.getElementById('tutorial-title').textContent = step.title;
+            document.getElementById('tutorial-text').textContent = step.text;
+            document.getElementById('tutorial-next').textContent = index === tutorialSteps.length - 1 ? 'Finish' : 'Next';
+            
+            // Update Dots
+            const dotsContainer = document.getElementById('tutorial-dots');
+            dotsContainer.innerHTML = tutorialSteps.map((_, i) => 
+                `<div class="tutorial-dot ${i === index ? 'active' : ''}"></div>`
+            ).join('');
+
+            // Position Elements
+            if (step.target) {
+                const targetEl = document.querySelector(step.target);
+                const rect = targetEl.getBoundingClientRect();
+                const scrollY = window.scrollY;
+                
+                highlight.style.display = 'block';
+                highlight.style.width = rect.width + 'px';
+                highlight.style.height = rect.height + 'px';
+                highlight.style.top = (rect.top + scrollY) + 'px';
+                highlight.style.left = rect.left + 'px';
+                
+                tooltip.style.display = 'block';
+                tooltip.style.transform = 'none';
+                tooltip.style.top = (rect.bottom + scrollY + 15) + 'px';
+                tooltip.style.left = (rect.left + (rect.width/2) - 140) + 'px'; // Center tooltip
+                
+                // Ensure tooltip stays on screen
+                if (parseInt(tooltip.style.left) < 10) tooltip.style.left = '10px';
+            } else {
+                // Center for welcome step
+                highlight.style.display = 'none';
+                tooltip.style.display = 'block';
+                tooltip.style.top = '50%';
+                tooltip.style.left = '50%';
+                tooltip.style.transform = 'translate(-50%, -50%)';
+            }
+        }
+
+        document.getElementById('tutorial-next').addEventListener('click', () => {
+            currentStep++;
+            if (currentStep < tutorialSteps.length) {
+                showStep(currentStep);
+            } else {
+                document.getElementById('tutorial-highlight').style.display = 'none';
+                document.getElementById('tutorial-tooltip').style.display = 'none';
+                // Return to dashboard
+                document.querySelector('[data-tab="dashboard"]').click();
+            }
+        });
+
+        document.getElementById('tutorial-skip').addEventListener('click', () => {
+            document.getElementById('tutorial-highlight').style.display = 'none';
+            document.getElementById('tutorial-tooltip').style.display = 'none';
+        });
     </script>
 </body>
 </html>
