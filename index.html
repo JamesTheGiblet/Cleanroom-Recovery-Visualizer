@@ -2,16 +2,23 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LWS - Cleanroom Recovery Visualizer</title>
     <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+            /* --- Responsive Mobile Styles --- */
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
             -webkit-tap-highlight-color: rgba(0,0,0,0.1);
+        }
+        
+        /* Prevent iOS text size adjust */
+        html {
+            -webkit-text-size-adjust: 100%;
+            text-size-adjust: 100%;
         }
         
         :root {
@@ -48,6 +55,129 @@
             max-width: 1400px;
             margin: 0 auto;
             padding: 0 12px;
+        }
+
+        @media (max-width: 900px) {
+            .container {
+                max-width: 100%;
+                padding: 0 4px;
+            }
+        }
+
+        @media (max-width: 700px) {
+            .container {
+                padding: 0 2px;
+            }
+        }
+
+        @media (max-width: 600px) {
+            body {
+                font-size: 0.98em;
+                padding-bottom: 60px;
+            }
+            .header {
+                padding: 10px 2px;
+            }
+            .header h1 {
+                font-size: 1.05rem;
+                gap: 6px;
+            }
+            .header .subtitle {
+                font-size: 0.7rem;
+            }
+            .tab-nav {
+                top: 56px;
+            }
+            .tab-btn {
+                min-width: 80px;
+                font-size: 0.78rem;
+                padding: 10px 4px;
+                gap: 2px;
+            }
+            .tab-btn i {
+                font-size: 1rem;
+            }
+            .card, .chart-wrapper {
+                padding: 8px;
+                margin-bottom: 10px;
+                border-radius: 6px;
+            }
+            .metrics-grid {
+                grid-template-columns: 1fr;
+                gap: 8px;
+            }
+            .drink-grid {
+                grid-template-columns: 1fr;
+                gap: 8px;
+            }
+            .btn {
+                font-size: 0.85rem;
+                padding: 10px 8px;
+            }
+            .slider-label {
+                font-size: 0.85rem;
+            }
+            .slider-value {
+                font-size: 0.8rem;
+                min-width: 40px;
+            }
+            .timeline {
+                padding-left: 12px;
+            }
+            .timeline-item {
+                margin-bottom: 12px;
+            }
+            .toast {
+                min-width: 180px;
+                font-size: 0.8rem;
+                padding: 8px 12px;
+                bottom: 10px;
+            }
+        }
+
+        @media (max-width: 400px) {
+            .header .subtitle { display: none; }
+            
+            /* Even more compact metrics */
+            .metrics-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 6px;
+            }
+            
+            .metric-card {
+                padding: 8px;
+            }
+            
+            .metric-value {
+                font-size: 1.3rem;
+            }
+            
+            /* Compact timeline */
+            .timeline {
+                padding-left: 16px;
+            }
+            
+            .timeline-item::before {
+                left: -16px;
+                width: 8px;
+                height: 8px;
+            }
+        }
+        
+        /* Optimize for landscape on small devices */
+        @media (max-height: 500px) and (orientation: landscape) {
+            .header {
+                padding: 8px;
+                position: static;
+            }
+            
+            .tab-nav {
+                top: 0;
+            }
+            
+            #chart {
+                height: 250px;
+            }
         }
         
         /* Header */
@@ -88,7 +218,10 @@
             top: 76px;
             z-index: 999;
             overflow-x: auto;
-            scrollbar-width: none;
+        }
+        /* Hide scrollbar for Chrome, Safari, Opera */
+        .tab-nav::-webkit-scrollbar {
+            display: none;
         }
         
         .tab-buttons {
@@ -172,6 +305,7 @@
             margin-bottom: 16px;
             overflow: hidden;
             border-top: 3px solid var(--primary);
+            contain: layout style;
         }
         
         #chart { width: 100%; height: 350px; }
@@ -232,6 +366,7 @@
             width: 100%;
             height: 6px;
             -webkit-appearance: none;
+            appearance: none;
             background: #dee2e6;
             border-radius: 3px;
             outline: none;
@@ -293,7 +428,11 @@
             transition: var(--transition);
         }
         
-        .drink-card:active { transform: scale(0.98); background: #e2e6ea; }
+        /* Better tap feedback */
+        .drink-card:active, .tab-btn:active {
+            transform: scale(0.97);
+            transition: transform 0.1s ease;
+        }
         
         .drink-icon { font-size: 1.8rem; margin-bottom: 8px; color: var(--primary); }
         .drink-name { font-weight: 600; font-size: 0.85rem; margin-bottom: 2px; }
@@ -338,7 +477,7 @@
             background: #dee2e6;
         }
         
-        .timeline-item { position: relative; margin-bottom: 20px; }
+        .timeline-item { position: relative; margin-bottom: 20px; --event-color: var(--primary); }
         .timeline-item::before {
             content: '';
             position: absolute;
@@ -346,10 +485,10 @@
             top: 4px;
             width: 10px;
             height: 10px;
-            background: var(--primary);
+            background: var(--event-color);
             border-radius: 50%;
             border: 2px solid white;
-            box-shadow: 0 0 0 1px var(--primary);
+            box-shadow: 0 0 0 1px var(--event-color);
         }
         
         .timeline-time { font-weight: 700; color: var(--primary-dark); font-size: 0.85rem; }
@@ -375,6 +514,42 @@
             min-width: 300px;
         }
         .toast.show { transform: translateX(-50%) translateY(0); }
+
+        /* Print Styles */
+        .print-only { display: none; }
+        @media print {
+            body { background: white; padding: 0; }
+            .header, .tab-nav, .btn, .toast, .slider-container, .radio-group, .drink-grid, .subtitle { display: none !important; }
+            .container { max-width: 100%; margin: 0; padding: 20px; }
+            .card { box-shadow: none; border: 1px solid #ddd; margin-bottom: 20px; }
+            .chart-wrapper { box-shadow: none; border: 1px solid #ddd; break-inside: avoid; }
+            #dashboard { display: block !important; }
+            #inputs, #config { display: none !important; }
+            .print-only { display: block; text-align: center; margin-bottom: 30px; }
+            .print-only h1 { color: var(--primary); margin-bottom: 5px; }
+            .print-only p { color: #666; font-size: 0.9rem; }
+        }
+        
+        /* Add hover fallbacks for touch devices */
+        @media (hover: none) and (pointer: coarse) {
+            .drink-card:hover { background: #e2e6ea; }
+            .tab-btn:hover { background: rgba(0, 86, 179, 0.05); }
+        }
+        
+        /* Accessibility: Keyboard Navigation */
+        body.keyboard-nav :focus {
+            outline: 3px solid var(--warning);
+            outline-offset: 2px;
+        }
+        body:not(.keyboard-nav) :focus {
+            outline: none;
+        }
+        
+        /* Pro Feature Styles */
+        .pro-badge { background: var(--warning); color: #000; font-size: 0.6rem; padding: 2px 6px; border-radius: 4px; font-weight: 700; vertical-align: middle; margin-left: 6px; }
+        .locked-btn { background: #6c757d !important; cursor: not-allowed; opacity: 0.8; }
+        .blur-text { filter: blur(4px); -webkit-user-select: none; user-select: none; opacity: 0.6; }
+        .radio-container.locked { opacity: 0.6; cursor: not-allowed; position: relative; }
     </style>
 </head>
 <body>
@@ -383,7 +558,7 @@
             <i class="fas fa-shield-virus"></i>
             LWS Recovery
         </h1>
-        <div class="subtitle">Cleanroom Contamination Visualizer</div>
+        <div class="subtitle">Cleanroom Contamination Visualizer <span class="pro-badge">DEMO</span></div>
     </div>
     
     <div class="tab-nav">
@@ -404,9 +579,18 @@
     </div>
     
     <div class="container">
+        <div class="print-only">
+            <h1>Cleanroom Recovery Report</h1>
+            <p>Generated: <span id="print-timestamp"></span></p>
+        </div>
         <div class="tab-content active" id="dashboard">
             <div class="chart-wrapper">
-                <div id="chart"></div>
+                <div id="chart" style="min-height: 350px; display: flex; align-items: center; justify-content: center;">
+                    <div class="chart-loading">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <div style="margin-top: 10px; font-size: 0.9rem;">Loading visualization...</div>
+                    </div>
+                </div>
             </div>
             
             <div class="card">
@@ -436,6 +620,14 @@
              <div class="card">
                 <div class="card-header">
                     <h3><i class="fas fa-history"></i> Event Log</h3>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn btn-primary locked-btn" onclick="showProAlert('PDF Reports')" style="width: auto; padding: 6px 12px; font-size: 0.8rem;">
+                            <i class="fas fa-lock"></i> PDF
+                        </button>
+                        <button class="btn btn-primary locked-btn" onclick="showProAlert('CSV Export')" style="width: auto; padding: 6px 12px; font-size: 0.8rem;">
+                            <i class="fas fa-lock"></i> CSV
+                        </button>
+                    </div>
                 </div>
                 <div class="timeline" id="event-timeline">
                     <div class="timeline-item">
@@ -471,22 +663,25 @@
                 <div style="margin-bottom: 20px;">
                     <div class="slider-label">
                         <span>Air Changes per Hour (ACH)</span>
-                        <span class="slider-value" id="display-ach">20</span>
+                        <div style="text-align:right">
+                            <span class="slider-value" id="display-ach">20</span>
+                            <div style="font-size:0.7rem; color:#666; margin-top:2px;" id="energy-cost"><i class="fas fa-lock" style="font-size:0.6rem"></i> <span class="blur-text">$0.06/hr</span></div>
+                        </div>
                     </div>
                     <div class="radio-group">
-                        <label class="radio-container" onclick="setACH(10)">
+                        <label class="radio-container" data-ach="10" onclick="setACH(10, event)">
                             <div class="radio-label">Eco Mode</div>
                             <div class="radio-sublabel">10 ACH (Slow Recovery)</div>
                         </label>
-                        <label class="radio-container selected" onclick="setACH(20)">
+                        <label class="radio-container selected" data-ach="20" onclick="setACH(20, event)">
                             <div class="radio-label">Standard</div>
                             <div class="radio-sublabel">20 ACH (ISO 7/8)</div>
                         </label>
-                        <label class="radio-container" onclick="setACH(40)">
+                        <label class="radio-container" data-ach="40" onclick="setACH(40, event)">
                             <div class="radio-label">High Velocity</div>
                             <div class="radio-sublabel">40 ACH (Rapid Clean)</div>
                         </label>
-                        <label class="radio-container" onclick="setACH(60)">
+                        <label class="radio-container locked" onclick="showProAlert('Emergency Flush Mode')">
                             <div class="radio-label">Emergency</div>
                             <div class="radio-sublabel">60 ACH (Flush)</div>
                         </label>
@@ -531,19 +726,19 @@
         // ==========================================
         
         const events = [
-            { name: 'Door Opened', icon: 'fa-door-open', particles: 50000, desc: '1 min duration' },
-            { name: 'Person Entering', icon: 'fa-user', particles: 150000, desc: 'Gowning protocol' },
-            { name: 'Equipment Move', icon: 'fa-box', particles: 300000, desc: 'Cart rolling' },
-            { name: 'Spill / Cleaning', icon: 'fa-broom', particles: 500000, desc: 'Aerosol generation' },
-            { name: 'Process Failure', icon: 'fa-exclamation-circle', particles: 1000000, desc: 'Major release' },
-            { name: 'Shift Change', icon: 'fa-users', particles: 250000, desc: 'Multiple entries' }
+            { name: 'Door Opened', icon: 'fa-door-open', particles: 50000, desc: '1 min duration', color: '#17a2b8' },
+            { name: 'Person Entering', icon: 'fa-user', particles: 150000, desc: 'Gowning protocol', color: '#0056b3' },
+            { name: 'Equipment Move', icon: 'fa-box', particles: 300000, desc: 'Cart rolling', color: '#ffc107' },
+            { name: 'Spill / Cleaning', icon: 'fa-broom', particles: 500000, desc: 'Aerosol generation', color: '#fd7e14' },
+            { name: 'Process Failure', icon: 'fa-exclamation-circle', particles: 1000000, desc: 'Major release', color: '#dc3545' },
+            { name: 'Shift Change', icon: 'fa-users', particles: 250000, desc: 'Multiple entries', color: '#6610f2' }
         ];
 
         let state = {
             events: [],
-            ach: 20,
-            volume: 100,
-            isoLimit: 352000, // ISO Class 7
+            ach: parseInt(localStorage.getItem('cr_ach')) || 20,
+            volume: parseInt(localStorage.getItem('cr_volume')) || 100,
+            isoLimit: parseInt(localStorage.getItem('cr_iso')) || 352000, // ISO Class 7
             baseline: 1000 // Background particles
         };
 
@@ -551,11 +746,26 @@
         // INITIALIZATION
         // ==========================================
         document.addEventListener('DOMContentLoaded', () => {
+            initData();
             initTabs();
             initPresets();
             initControls();
+            initTouch();
+            initKeyboard();
             updateVis();
         });
+
+        function initData() {
+            // Restore full event history from crash/refresh
+            const saved = localStorage.getItem('cr_events');
+            if (saved) {
+                state.events = JSON.parse(saved).map(ev => ({
+                    ...ev,
+                    time: new Date(ev.time) // Re-hydrate Date objects
+                }));
+                updateTimeline();
+            }
+        }
 
         function initTabs() {
             document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -584,31 +794,76 @@
             });
         }
 
+        function initTouch() {
+            // Add touch event listeners for better feedback
+            document.querySelectorAll('.drink-card').forEach(card => {
+                card.addEventListener('touchstart', function() {
+                    this.style.opacity = '0.7';
+                });
+                
+                card.addEventListener('touchend', function() {
+                    this.style.opacity = '1';
+                });
+            });
+
+            // Prevent zoom on slider interaction
+            document.querySelectorAll('input[type="range"]').forEach(slider => {
+                slider.style.touchAction = 'none';
+            });
+        }
+
+        function initKeyboard() {
+            // Add keyboard support for mobile users with external keyboards
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Tab') {
+                    document.body.classList.add('keyboard-nav');
+                }
+            });
+            document.addEventListener('mousedown', () => {
+                document.body.classList.remove('keyboard-nav');
+            });
+        }
+
         function initControls() {
             // Volume Slider
             const volSlider = document.getElementById('volume');
+            volSlider.value = state.volume;
+            document.getElementById('display-volume').textContent = state.volume;
+            
             volSlider.addEventListener('input', (e) => {
                 state.volume = parseInt(e.target.value);
+                localStorage.setItem('cr_volume', state.volume);
                 document.getElementById('display-volume').textContent = state.volume;
                 updateVis();
             });
 
             // ISO Slider
             const isoSlider = document.getElementById('iso-limit');
+            isoSlider.value = state.isoLimit;
+            document.getElementById('display-iso').textContent = state.isoLimit.toLocaleString();
+            
             isoSlider.addEventListener('input', (e) => {
                 state.isoLimit = parseInt(e.target.value);
+                localStorage.setItem('cr_iso', state.isoLimit);
                 document.getElementById('display-iso').textContent = state.isoLimit.toLocaleString();
                 updateVis();
             });
+            
+            // ACH Radio Init
+            document.getElementById('display-ach').textContent = state.ach;
+            document.querySelectorAll('.radio-container').forEach(el => {
+                el.classList.toggle('selected', parseInt(el.dataset.ach) === state.ach);
+            });
         }
 
-        function setACH(val) {
+        function setACH(val, evt) {
             state.ach = val;
+            localStorage.setItem('cr_ach', val);
             document.getElementById('display-ach').textContent = val;
             
             // Visual toggle update
             document.querySelectorAll('.radio-container').forEach(el => el.classList.remove('selected'));
-            event.currentTarget.classList.add('selected');
+            evt.currentTarget.classList.add('selected');
             
             showToast(`HVAC set to ${val} Air Changes/Hour`);
             updateVis();
@@ -623,6 +878,7 @@
                 time: new Date(),
                 id: Date.now()
             });
+            saveEvents();
             showToast(`Event: ${preset.name} recorded`, 'warning');
             updateVis();
             updateTimeline();
@@ -630,9 +886,43 @@
 
         function clearEvents() {
             state.events = [];
+            saveEvents();
             showToast('All contamination events cleared');
             updateVis();
             updateTimeline();
+        }
+
+        function showProAlert(feature) {
+            showToast(`Upgrade to Pro to use ${feature}`, 'danger');
+        }
+
+        function saveEvents() {
+            localStorage.setItem('cr_events', JSON.stringify(state.events));
+        }
+
+        function exportCSV() {
+            const data = calculateCurve();
+            let csvContent = "data:text/csv;charset=utf-8,Time (min),Particles\n";
+            data.x.forEach((t, i) => {
+                csvContent += `${t},${data.y[i]}\n`;
+            });
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "cleanroom_recovery_data.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function generatePDF() {
+            // Switch to dashboard to ensure content is rendered
+            const dashboardBtn = document.querySelector('[data-tab="dashboard"]');
+            if (!dashboardBtn.classList.contains('active')) dashboardBtn.click();
+            
+            document.getElementById('print-timestamp').textContent = new Date().toLocaleString();
+            
+            setTimeout(() => window.print(), 500);
         }
 
         function calculateCurve() {
@@ -659,8 +949,8 @@
                     
                     if (minutesSinceEvent >= 0) {
                         // Standard exponential decay: N(t) = N0 * e^(-kt)
-                        const remaining = ev.particles * Math.exp(-decayConstant * minutesSinceEvent);
-                        currentParticles += remaining;
+                        // Calculate concentration: C(t) = (N0/V) * e^(-kt)
+                        currentParticles += (ev.particles / state.volume) * Math.exp(-decayConstant * minutesSinceEvent);
                     }
                 });
 
@@ -680,6 +970,9 @@
             // Update Metrics
             document.getElementById('current-load').textContent = data.currentVal.toLocaleString();
             document.getElementById('ach-display').textContent = state.ach;
+            
+            // Update Cost Estimate (Simple model: Volume * ACH * EfficiencyFactor * CostPerKWh)
+            // LOCKED IN DEMO MODE
             
             // Calculate Recovery Time (Time to return to ISO limit)
             let recoveryTime = 0;
@@ -723,7 +1016,11 @@
             const layout = {
                 title: false,
                 xaxis: { title: 'Minutes from Now', gridcolor: '#e9ecef' },
-                yaxis: { title: 'Particle Count', gridcolor: '#e9ecef' },
+                yaxis: { 
+                    title: 'Particle Count', 
+                    gridcolor: '#e9ecef', 
+                    range: [0, Math.max(Math.max(...data.y) * 1.1, state.isoLimit * 1.1)]
+                },
                 margin: { l: 50, r: 20, t: 20, b: 40 },
                 showlegend: true,
                 legend: { orientation: 'h', y: 1.1 },
@@ -731,7 +1028,7 @@
                 plot_bgcolor: 'rgba(0,0,0,0)'
             };
 
-            Plotly.newPlot('chart', [trace1, trace2], layout, {responsive: true, displayModeBar: false});
+            Plotly.react('chart', [trace1, trace2], layout, {responsive: true, displayModeBar: false});
         }
 
         function updateTimeline() {
@@ -742,11 +1039,12 @@
             }
             
             container.innerHTML = state.events.slice().reverse().map(ev => `
-                <div class="timeline-item">
+                <div class="timeline-item" style="--event-color: ${ev.color || 'var(--primary)'}">
                     <div class="timeline-time">${ev.time.toLocaleTimeString()}</div>
                     <div class="timeline-content">
                         <strong>${ev.name}</strong><br>
-                        +${(ev.particles/1000).toFixed(0)}k particles
+                        +${(ev.particles/1000).toFixed(0)}k particles<br>
+                        ${ev.desc}
                     </div>
                 </div>
             `).join('');
@@ -755,6 +1053,7 @@
         function showToast(msg, type='info') {
             const toast = document.getElementById('toast');
             document.getElementById('toast-message').textContent = msg;
+            toast.style.background = type === 'danger' ? 'var(--danger)' : 'var(--dark-text)';
             toast.classList.add('show');
             setTimeout(() => toast.classList.remove('show'), 3000);
         }
