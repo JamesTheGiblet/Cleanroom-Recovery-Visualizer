@@ -536,6 +536,68 @@
             .tab-btn:hover { background: rgba(0, 86, 179, 0.05); }
         }
         
+        /* Simulation Controls */
+        .sim-controls { display: flex; gap: 8px; margin-right: 12px; }
+        .control-btn {
+            background: white; border: 1px solid #dee2e6; border-radius: 4px;
+            width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; color: var(--dark-text); transition: var(--transition);
+        }
+        .control-btn:hover { background: #e9ecef; color: var(--primary); }
+        .control-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+        
+        /* Live Indicator States */
+        .live-badge.paused {
+            color: var(--warning); border-color: var(--warning); background: rgba(255, 193, 7, 0.1);
+        }
+        .live-badge.paused .live-dot { background: var(--warning); animation: none; }
+        .live-badge.stopped {
+            color: var(--danger); border-color: var(--danger); background: rgba(220, 53, 69, 0.1);
+        }
+        .live-badge.stopped .live-dot { background: var(--danger); animation: none; }
+
+        /* Live Indicator */
+        .live-badge {
+            background: rgba(40, 167, 69, 0.15);
+            color: var(--success);
+            border: 1px solid var(--success);
+            font-size: 0.65rem;
+            padding: 2px 8px;
+            border-radius: 12px;
+            text-transform: uppercase;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            vertical-align: middle;
+            margin-left: 10px;
+        }
+        .live-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--success);
+            border-radius: 50%;
+            display: inline-block;
+            animation: pulse-green 2s infinite;
+        }
+        @keyframes pulse-green {
+            0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7); opacity: 1; }
+            70% { box-shadow: 0 0 0 6px rgba(40, 167, 69, 0); opacity: 0.7; }
+            100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); opacity: 1; }
+        }
+
+        /* Critical Alert Flash */
+        @keyframes flash-red {
+            0% { background-color: rgba(220, 53, 69, 0); }
+            10% { background-color: rgba(220, 53, 69, 0.4); }
+            100% { background-color: rgba(220, 53, 69, 0); }
+        }
+        
+        .flash-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 5000; animation: flash-red 0.6s ease-out;
+        }
+
         /* Tutorial Styles */
         .tutorial-highlight {
             position: absolute;
@@ -694,6 +756,13 @@
             <div class="card">
                 <div class="card-header">
                     <h3><i class="fas fa-tachometer-alt"></i> Room Status (ISO 7)</h3>
+                    <div style="display:flex; align-items:center;">
+                        <div class="sim-controls">
+                            <button class="control-btn" onclick="toggleSimulation()" id="btn-playpause" title="Play/Pause"><i class="fas fa-pause"></i></button>
+                            <button class="control-btn" onclick="stopSimulation()" title="Stop & Reset"><i class="fas fa-stop"></i></button>
+                        </div>
+                        <span class="live-badge" id="sim-badge"><span class="live-dot"></span> Live</span>
+                    </div>
                 </div>
                 <div class="metrics-grid">
                     <div class="metric-card">
@@ -909,12 +978,12 @@
         // ==========================================
         
         const events = [
-            { name: 'Door Opened', icon: 'fa-door-open', particles: 50000, desc: '1 min duration', color: '#17a2b8' },
-            { name: 'Person Entering', icon: 'fa-user', particles: 150000, desc: 'Gowning protocol', color: '#0056b3' },
-            { name: 'Equipment Move', icon: 'fa-box', particles: 300000, desc: 'Cart rolling', color: '#ffc107' },
-            { name: 'Spill / Cleaning', icon: 'fa-broom', particles: 500000, desc: 'Aerosol generation', color: '#fd7e14' },
-            { name: 'Process Failure', icon: 'fa-exclamation-circle', particles: 1000000, desc: 'Major release', color: '#dc3545' },
-            { name: 'Shift Change', icon: 'fa-users', particles: 250000, desc: 'Multiple entries', color: '#6610f2' }
+            { name: 'Door Opened', icon: 'fa-door-open', particles: 1000000, desc: '1 min duration', color: '#17a2b8' },
+            { name: 'Person Entering', icon: 'fa-user', particles: 5000000, desc: 'Gowning protocol', color: '#0056b3' },
+            { name: 'Equipment Move', icon: 'fa-box', particles: 15000000, desc: 'Cart rolling', color: '#ffc107' },
+            { name: 'Spill / Cleaning', icon: 'fa-broom', particles: 25000000, desc: 'Aerosol generation', color: '#fd7e14' },
+            { name: 'Process Failure', icon: 'fa-exclamation-circle', particles: 50000000, desc: 'Major release', color: '#dc3545' },
+            { name: 'Shift Change', icon: 'fa-users', particles: 10000000, desc: 'Multiple entries', color: '#6610f2' }
         ];
 
         let state = {
@@ -922,8 +991,14 @@
             ach: parseInt(localStorage.getItem('cr_ach')) || 20,
             volume: parseInt(localStorage.getItem('cr_volume')) || 100,
             isoLimit: parseInt(localStorage.getItem('cr_iso')) || 352000, // ISO Class 7
-            baseline: 1000 // Background particles
+            baseline: 1000, // Background particles
+            // Simulation State
+            timeOffset: parseInt(localStorage.getItem('cr_offset')) || 0,
+            isPaused: localStorage.getItem('cr_paused') === 'true',
+            lastPauseTime: parseInt(localStorage.getItem('cr_last_pause')) || Date.now()
         };
+
+        let simulationInterval;
 
         // ==========================================
         // INITIALIZATION
@@ -937,6 +1012,11 @@
             initKeyboard();
             updateVis();
             checkTutorial();
+            
+            // Start real-time simulation loop if not paused
+            if (!state.isPaused) {
+                startInterval();
+            }
         });
 
         function initData() {
@@ -968,10 +1048,19 @@
             events.forEach(ev => {
                 const card = document.createElement('div');
                 card.className = 'drink-card';
+                
+                // Smart formatting for large numbers (k vs M)
+                let qtyDisplay = '';
+                if (ev.particles >= 1000000) {
+                    qtyDisplay = (ev.particles / 1000000).toFixed(1).replace('.0','') + 'M';
+                } else {
+                    qtyDisplay = (ev.particles / 1000).toFixed(0) + 'k';
+                }
+
                 card.innerHTML = `
                     <div class="drink-icon"><i class="fas ${ev.icon}"></i></div>
                     <div class="drink-name">${ev.name}</div>
-                    <div class="drink-caffeine">+${(ev.particles/1000).toFixed(0)}k particles</div>
+                    <div class="drink-caffeine">+${qtyDisplay} particles</div>
                 `;
                 card.onclick = () => addEvent(ev);
                 grid.appendChild(card);
@@ -1054,15 +1143,73 @@
         }
 
         // ==========================================
+        // SIMULATION CONTROL
+        // ==========================================
+        function startInterval() {
+            if (simulationInterval) clearInterval(simulationInterval);
+            simulationInterval = setInterval(updateVis, 1000);
+        }
+
+        function getSimulationTime() {
+            if (state.isPaused) {
+                return new Date(state.lastPauseTime - state.timeOffset);
+            }
+            return new Date(Date.now() - state.timeOffset);
+        }
+
+        function toggleSimulation() {
+            if (state.isPaused) {
+                // Resume
+                const now = Date.now();
+                const pausedDuration = now - state.lastPauseTime;
+                state.timeOffset += pausedDuration;
+                state.isPaused = false;
+                startInterval();
+            } else {
+                // Pause
+                state.isPaused = true;
+                state.lastPauseTime = Date.now();
+                clearInterval(simulationInterval);
+            }
+            saveState();
+            updateVis();
+        }
+
+        function stopSimulation() {
+            state.isPaused = true;
+            state.lastPauseTime = Date.now();
+            state.timeOffset = 0;
+            state.events = []; // Clear events
+            clearInterval(simulationInterval);
+            saveState();
+            saveEvents();
+            showToast('Simulation stopped and reset');
+            updateVis();
+        }
+
+        function saveState() {
+            localStorage.setItem('cr_offset', state.timeOffset);
+            localStorage.setItem('cr_paused', state.isPaused);
+            localStorage.setItem('cr_last_pause', state.lastPauseTime);
+        }
+
+        // ==========================================
         // LOGIC ENGINE (The "Decay" Math)
         // ==========================================
         function addEvent(preset) {
             state.events.push({
                 ...preset,
-                time: new Date(),
+                time: getSimulationTime(),
                 id: Date.now()
             });
             saveEvents();
+            
+            // Trigger Red Flash
+            const flash = document.createElement('div');
+            flash.className = 'flash-overlay';
+            document.body.appendChild(flash);
+            setTimeout(() => flash.remove(), 600);
+            
             showToast(`Event: ${preset.name} recorded`, 'warning');
             updateVis();
             updateTimeline();
@@ -1113,7 +1260,7 @@
             // Simulation parameters
             const duration = 60; // Minutes to project
             const timeStep = 1; // Minute intervals
-            const now = new Date();
+            const now = getSimulationTime();
             
             let x = []; // Time (min)
             let y = []; // Particle Count
@@ -1149,7 +1296,49 @@
         // VISUALIZATION
         // ==========================================
         function updateVis() {
+            // ...existing code...
             const data = calculateCurve();
+
+            // Overlay ACH and ISO limit as chart annotations (top right)
+            const overlayAnnotations = [
+                {
+                    x: 1,
+                    y: Math.max(...data.y) * 1.08,
+                    xref: 'paper',
+                    yref: 'y',
+                    text: `ACH: <b>${state.ach}</b>`,
+                    showarrow: false,
+                    font: { color: '#0056b3', size: 13 },
+                    align: 'right',
+                    bgcolor: '#e9ecef',
+                    bordercolor: '#0056b3',
+                    borderpad: 4,
+                    opacity: 0.9
+                },
+                {
+                    x: 1,
+                    y: state.isoLimit,
+                    xref: 'paper',
+                    yref: 'y',
+                    text: `ISO Limit: <b>${state.isoLimit.toLocaleString()}</b>`,
+                    showarrow: false,
+                    font: { color: '#dc3545', size: 13 },
+                    align: 'right',
+                    bgcolor: '#fff',
+                    bordercolor: '#dc3545',
+                    borderpad: 4,
+                    opacity: 0.9
+                }
+            ];
+            // Optimization: Only render if dashboard is visible to save battery/CPU
+            // if (!document.getElementById('dashboard').classList.contains('active')) return;
+
+            // FIX: Remove loading state styles (flexbox) which break Plotly rendering
+            const chartEl = document.getElementById('chart');
+            if (chartEl.style.display === 'flex') {
+                chartEl.style.display = 'block';
+                chartEl.innerHTML = ''; // Clear loading spinner
+            }
             
             // Update Metrics
             document.getElementById('current-load').textContent = data.currentVal.toLocaleString();
@@ -1177,6 +1366,25 @@
                 statusEl.style.color = "var(--success)";
             }
 
+            // Update Controls UI
+            const btnPlay = document.getElementById('btn-playpause');
+            const badge = document.getElementById('sim-badge');
+            
+            if (state.isPaused) {
+                btnPlay.innerHTML = '<i class="fas fa-play"></i>';
+                if (state.events.length === 0 && state.timeOffset === 0) {
+                     badge.className = 'live-badge stopped';
+                     badge.innerHTML = '<span class="live-dot"></span> Stopped';
+                } else {
+                     badge.className = 'live-badge paused';
+                     badge.innerHTML = '<span class="live-dot"></span> Paused';
+                }
+            } else {
+                btnPlay.innerHTML = '<i class="fas fa-pause"></i>';
+                badge.className = 'live-badge';
+                badge.innerHTML = '<span class="live-dot"></span> Live';
+            }
+
             // Draw Chart
             const trace1 = {
                 x: data.x,
@@ -1197,19 +1405,116 @@
                 line: { color: '#dc3545', width: 2, dash: 'dash' }
             };
 
+            // Add vertical event markers (shapes) for each contamination event
+            const eventMarkers = (state.events || []).map(ev => {
+                // Calculate minutes from now for the event
+                const now = getSimulationTime();
+                const minutesFromNow = Math.round((ev.time - now) / 60000);
+                if (minutesFromNow < 0 || minutesFromNow > 60) return null; // Only show markers in visible range
+                return {
+                    type: 'line',
+                    x0: minutesFromNow,
+                    x1: minutesFromNow,
+                    y0: 0,
+                    y1: Math.max(Math.max(...data.y) * 1.1, state.isoLimit * 1.1),
+                    line: {
+                        color: ev.color || '#17a2b8',
+                        width: 2,
+                        dash: 'dot'
+                    },
+                    opacity: 0.8
+                };
+            }).filter(Boolean);
+
+            // Add event labels as annotations
+            const eventAnnotations = (state.events || []).map(ev => {
+                const now = getSimulationTime();
+                const minutesFromNow = Math.round((ev.time - now) / 60000);
+                if (minutesFromNow < 0 || minutesFromNow > 60) return null;
+                return {
+                    x: minutesFromNow,
+                    y: Math.max(...data.y) * 1.05,
+                    xref: 'x',
+                    yref: 'y',
+                    text: ev.name,
+                    showarrow: true,
+                    arrowhead: 2,
+                    ax: 0,
+                    ay: -30,
+                    font: { color: ev.color || '#17a2b8', size: 11 },
+                    bgcolor: '#fff',
+                    bordercolor: ev.color || '#17a2b8',
+                    borderpad: 2
+                };
+            }).filter(Boolean);
+
+            // Shade unsafe (above ISO limit) and safe (below ISO limit) zones
+            const yMax = Math.max(Math.max(...data.y) * 1.1, state.isoLimit * 1.1);
+            const zoneShapes = [
+                // Unsafe zone (red, above ISO limit)
+                {
+                    type: 'rect',
+                    xref: 'paper',
+                    yref: 'y',
+                    x0: 0,
+                    x1: 1,
+                    y0: state.isoLimit,
+                    y1: yMax,
+                    fillcolor: 'rgba(220,53,69,0.08)', // red
+                    line: { width: 0 },
+                    layer: 'below'
+                },
+                // Safe zone (green, below ISO limit)
+                {
+                    type: 'rect',
+                    xref: 'paper',
+                    yref: 'y',
+                    x0: 0,
+                    x1: 1,
+                    y0: 0,
+                    y1: state.isoLimit,
+                    fillcolor: 'rgba(40,167,69,0.06)', // green
+                    line: { width: 0 },
+                    layer: 'below'
+                }
+            ];
+
+            // Find recovery time index (when particle count drops below ISO limit)
+            let recoveryIndex = data.y.findIndex(val => val < state.isoLimit);
+            let recoveryAnnotation = null;
+            if (recoveryIndex !== -1 && recoveryIndex > 0) {
+                recoveryAnnotation = {
+                    x: data.x[recoveryIndex],
+                    y: data.y[recoveryIndex],
+                    xref: 'x',
+                    yref: 'y',
+                    text: `Recovery\n${data.x[recoveryIndex]} min`,
+                    showarrow: true,
+                    arrowhead: 4,
+                    ax: 0,
+                    ay: -40,
+                    font: { color: '#28a745', size: 12, family: 'Roboto, Segoe UI, sans-serif' },
+                    bgcolor: '#fff',
+                    bordercolor: '#28a745',
+                    borderpad: 3
+                };
+            }
+
             const layout = {
                 title: false,
                 xaxis: { title: 'Minutes from Now', gridcolor: '#e9ecef' },
                 yaxis: { 
                     title: 'Particle Count', 
                     gridcolor: '#e9ecef', 
-                    range: [0, Math.max(Math.max(...data.y) * 1.1, state.isoLimit * 1.1)]
+                    range: [0, yMax]
                 },
                 margin: { l: 50, r: 20, t: 20, b: 40 },
                 showlegend: true,
                 legend: { orientation: 'h', y: 1.1 },
                 paper_bgcolor: 'rgba(0,0,0,0)',
-                plot_bgcolor: 'rgba(0,0,0,0)'
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                shapes: [...zoneShapes, ...eventMarkers],
+                annotations: recoveryAnnotation ? [...eventAnnotations, recoveryAnnotation, ...overlayAnnotations] : [...eventAnnotations, ...overlayAnnotations]
             };
 
             Plotly.react('chart', [trace1, trace2], layout, {responsive: true, displayModeBar: false});
@@ -1221,17 +1526,20 @@
                 container.innerHTML = `<div class="timeline-item"><div class="timeline-time">System Ready</div><div class="timeline-content">No events.</div></div>`;
                 return;
             }
-            
-            container.innerHTML = state.events.slice().reverse().map(ev => `
-                <div class="timeline-item" style="--event-color: ${ev.color || 'var(--primary)'}">
-                    <div class="timeline-time">${ev.time.toLocaleTimeString()}</div>
-                    <div class="timeline-content">
-                        <strong>${ev.name}</strong><br>
-                        +${(ev.particles/1000).toFixed(0)}k particles<br>
-                        ${ev.desc}
-                    </div>
-                </div>
-            `).join('');
+
+            // Enhanced event table
+            let table = `<table style="width:100%;border-collapse:collapse;font-size:0.98em;margin-bottom:8px;">
+                <thead><tr style="background:#f8f9fa;"><th style='padding:4px 8px;border-bottom:1px solid #ccc;'>Time</th><th style='padding:4px 8px;border-bottom:1px solid #ccc;'>Event</th><th style='padding:4px 8px;border-bottom:1px solid #ccc;'>Particles</th><th style='padding:4px 8px;border-bottom:1px solid #ccc;'>Description</th></tr></thead><tbody>`;
+            state.events.slice().reverse().forEach(ev => {
+                table += `<tr style='border-bottom:1px solid #eee;'>
+                    <td style='padding:4px 8px;color:#555;'>${ev.time.toLocaleTimeString()}</td>
+                    <td style='padding:4px 8px;'><span style='display:inline-block;width:10px;height:10px;border-radius:50%;background:${ev.color || '#17a2b8'};margin-right:6px;vertical-align:middle;'></span>${ev.name}</td>
+                    <td style='padding:4px 8px;'>+${(ev.particles/1000).toFixed(0)}k</td>
+                    <td style='padding:4px 8px;'>${ev.desc || ''}</td>
+                </tr>`;
+            });
+            table += `</tbody></table>`;
+            container.innerHTML = table;
         }
 
         function showToast(msg, type='info') {
